@@ -1,0 +1,11 @@
+[project]
+name = "sp500-return-prediction"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "matplotlib>=3.10.9",
+    "numpy>=2.4.6",
+    "pandas>=3.0.3",
+    "scikit-learn>=1.8.0",
+    "seaborn>=0.13.2",
+]
