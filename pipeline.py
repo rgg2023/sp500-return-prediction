@@ -494,7 +494,7 @@ def visualize_results(cls_result, reg_df, top5, feature_cols, save_path='pipelin
     # ── 3. 회귀 1d RMSE – y축 범위 좁힘 ──────────────────
     ax3 = fig.add_subplot(3, 3, 3)
     reg_1d  = reg_df[reg_df['Target_Horizon'] == '1d'].copy()
-    # Baseline 제외 모델만 색상 구분
+    # Zero Baseline, Mean Baseline 모두 회색 / 나머지 모델은 보라색
     colors3 = ['#AAAAAA' if 'Baseline' in m else '#8B6BD6'
                for m in reg_1d['Model']]
     bars3 = ax3.bar(range(len(reg_1d)), reg_1d['RMSE'],
@@ -602,11 +602,12 @@ def visualize_results(cls_result, reg_df, top5, feature_cols, save_path='pipelin
     ax9.set_yticklabels(t5r['Model'], fontsize=8)
     ax9.invert_yaxis()
     da_vals  = t5r['Direction_Accuracy']
-    da_range = da_vals.max() - da_vals.min()
-    mg9 = da_range * 5 if da_range > 0 else 0.005
-    ax9.set_xlim(da_vals.min() - mg9, da_vals.max() + mg9 * 8)
+    # 데이터 범위 기반으로 x축 고정 (0~1 방지)
+    da_lo = min(da_vals.min(), 0.49) - 0.005
+    da_hi = da_vals.max() + 0.025
+    ax9.set_xlim(da_lo, da_hi)
     ax9.axvline(0.5, color='red', linestyle='--', linewidth=1.5, label='Random (0.50)')
-    _add_hbar_labels(ax9, bars9, fmt='{:.4f}', padding=mg9 * 0.3)
+    _add_hbar_labels(ax9, bars9, fmt='{:.4f}', padding=0.001)
     ax9.set_title('Top 5 Regression Dir.Acc (1-day)')
     ax9.set_xlabel('Direction Accuracy')
     ax9.legend(fontsize=8)
@@ -703,12 +704,78 @@ def run_data_science_pipeline(data_path, k_fold=5, save_plot=True):
 
 
 # ============================================================
+# 결과 저장 / 로드 유틸리티
+# ============================================================
+
+def save_results(results, path='pipeline_results.pkl'):
+    """
+    전체 파이프라인 결과를 pickle 파일로 저장합니다.
+    다음 실행 시 모델을 다시 학습하지 않고 시각화만 할 수 있습니다.
+
+    Parameters
+    ----------
+    results : dict   run_data_science_pipeline() 반환값
+    path    : str    저장 경로 (기본 'pipeline_results.pkl')
+    """
+    import pickle
+    # data 키 안의 numpy 배열은 그대로 저장 가능
+    save_obj = {
+        'classification': results['classification'],
+        'regression'    : results['regression'],
+        'top5'          : results['top5'],
+        'feature_cols'  : results['data']['feature_cols'],
+    }
+    with open(path, 'wb') as f:
+        pickle.dump(save_obj, f)
+    print(f"[저장] 결과 저장 완료: {path}")
+
+
+def load_and_visualize(pkl_path='pipeline_results.pkl',
+                       save_path='pipeline_results.png'):
+    """
+    저장된 결과를 불러와 시각화만 빠르게 실행합니다.
+    모델 학습 없이 수 초 안에 완료됩니다.
+
+    Parameters
+    ----------
+    pkl_path  : str   save_results()로 저장한 pkl 파일 경로
+    save_path : str   저장할 이미지 파일 경로
+    """
+    import pickle
+    print(f"[로드] {pkl_path} 불러오는 중 ...")
+    with open(pkl_path, 'rb') as f:
+        saved = pickle.load(f)
+
+    visualize_results(
+        cls_result  = saved['classification'],
+        reg_df      = saved['regression'],
+        top5        = saved['top5'],
+        feature_cols= saved['feature_cols'],
+        save_path   = save_path,
+    )
+    print("[완료] 시각화 재생성 완료!")
+
+
+# ============================================================
 # 실행 진입점
 # ============================================================
 
 if __name__ == '__main__':
-    results = run_data_science_pipeline(
-        data_path='all_stocks_5yr.csv',
-        k_fold=5,
-        save_plot=True,
-    )
+    import sys
+
+    # ── 시각화만 다시 실행할 때: python pipeline.py viz ───
+    if len(sys.argv) > 1 and sys.argv[1] == 'viz':
+        load_and_visualize(
+            pkl_path  = 'pipeline_results.pkl',
+            save_path = 'pipeline_results.png',
+        )
+
+    # ── 전체 파이프라인 실행 (기본) ───────────────────────
+    else:
+        results = run_data_science_pipeline(
+            data_path='all_stocks_5yr.csv',
+            k_fold=5,
+            save_plot=True,
+        )
+        # 결과 저장 → 다음번 시각화만 실행 시 사용
+        save_results(results, path='pipeline_results.pkl')

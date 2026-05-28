@@ -494,7 +494,7 @@ def visualize_results(cls_result, reg_df, top5, feature_cols, save_path='pipelin
     # ── 3. 회귀 1d RMSE – y축 범위 좁힘 ──────────────────
     ax3 = fig.add_subplot(3, 3, 3)
     reg_1d  = reg_df[reg_df['Target_Horizon'] == '1d'].copy()
-    # Baseline 제외 모델만 색상 구분
+    # Zero Baseline, Mean Baseline 모두 회색 / 나머지 모델은 보라색
     colors3 = ['#AAAAAA' if 'Baseline' in m else '#8B6BD6'
                for m in reg_1d['Model']]
     bars3 = ax3.bar(range(len(reg_1d)), reg_1d['RMSE'],
@@ -602,11 +602,12 @@ def visualize_results(cls_result, reg_df, top5, feature_cols, save_path='pipelin
     ax9.set_yticklabels(t5r['Model'], fontsize=8)
     ax9.invert_yaxis()
     da_vals  = t5r['Direction_Accuracy']
-    da_range = da_vals.max() - da_vals.min()
-    mg9 = da_range * 5 if da_range > 0 else 0.005
-    ax9.set_xlim(da_vals.min() - mg9, da_vals.max() + mg9 * 8)
+    # 데이터 범위 기반으로 x축 고정 (0~1 방지)
+    da_lo = min(da_vals.min(), 0.49) - 0.005
+    da_hi = da_vals.max() + 0.025
+    ax9.set_xlim(da_lo, da_hi)
     ax9.axvline(0.5, color='red', linestyle='--', linewidth=1.5, label='Random (0.50)')
-    _add_hbar_labels(ax9, bars9, fmt='{:.4f}', padding=mg9 * 0.3)
+    _add_hbar_labels(ax9, bars9, fmt='{:.4f}', padding=0.001)
     ax9.set_title('Top 5 Regression Dir.Acc (1-day)')
     ax9.set_xlabel('Direction Accuracy')
     ax9.legend(fontsize=8)
